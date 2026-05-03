@@ -5,81 +5,51 @@
   <meta charset="UTF-8" />
   <link rel="icon" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>prodevsltd.com</title>
+  <title>Pro Devs Ltd.</title>
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-LLVF13CFL1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-LLVF13CFL1');
+  </script>
 
   <!-- CSS (Always first) -->
-  <link rel="stylesheet" href="/assets/css/style.css">
-  <link rel="stylesheet" href="/assets/css/custom.css">
   <link rel="stylesheet" href="/assets/css/font-awesome.min.css">
   <link rel="stylesheet" href="/assets/css/animate.css">
   <link rel="stylesheet" href="/assets/css/owl.carousel.min.css">
   <link rel="stylesheet" href="/assets/css/owl.theme.default.min.css">
   <link rel="stylesheet" href="/assets/css/magnific-popup.css">
   <link rel="stylesheet" href="/assets/css/flaticon.css">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/custom.css">
+  <link rel="stylesheet" href="/assets/css/order-confirm.css">
+
+  <!-- Recaptcha (configure via VITE_RECAPTCHA_SITE_KEY in .env) -->
+  <style>.grecaptcha-badge { display: none !important; }</style>
 </head>
 
 <body>
   <div id="root"></div>
 
-  <!-- ✅ JS LIBRARIES (React এর আগে load করা better for jQuery plugins) -->
+  <!-- jQuery & plugins (needed by Owl Carousel and existing main.js) -->
   <script src="/assets/js/jquery.min.js"></script>
-  <!-- <script src="/assets/js/jquery-migrate-3.0.1.min.js"></script>
+  <script src="/assets/js/jquery-migrate-3.0.1.min.js"></script>
   <script src="/assets/js/popper.min.js"></script>
-  <script src="/assets/js/bootstrap.min.js"></script> -->
-
-  <!-- Plugins -->
-  <!-- <script src="/assets/js/jquery.easing.1.3.js"></script>
+  <script src="/assets/js/bootstrap.min.js"></script>
+  <script src="/assets/js/jquery.easing.1.3.js"></script>
   <script src="/assets/js/jquery.waypoints.min.js"></script>
-  <script src="/assets/js/jquery.stellar.min.js"></script> -->
-  <!-- <script src="/assets/js/jquery.magnific-popup.min.js"></script>
-  <script src="/assets/js/jquery.animateNumber.min.js"></script>
-  <script src="/assets/js/scrollax.min.js"></script> -->
-
-  <!-- Main JS (depends on above সব) -->
-  <!-- <script src="/assets/js/main.js"></script> -->
-
-  <!-- ✅ React (LAST এ) -->
-  <script type="module" src="/src/main.jsx"></script>
+  <script src="/assets/js/jquery.stellar.min.js"></script>
   <script src="/assets/js/owl.carousel.min.js"></script>
+  <script src="/assets/js/jquery.magnific-popup.min.js"></script>
+  <script src="/assets/js/jquery.animateNumber.min.js"></script>
+  <script src="/assets/js/scrollax.min.js"></script>
+  <script src="/assets/js/main.js"></script>
 
-  <!-- Custom Script -->
-  <script>
-    $(document).ready(function () {
-
-      $('.dropdown-toggle').on('click touchstart', function (e) {
-        if ($(window).width() >= 768) return;
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        var $this = $(this);
-        var $menu = $this.next('.dropdown-menu');
-        var $parent = $this.parent('.dropdown');
-
-        if ($parent.hasClass('show')) {
-          $parent.removeClass('show');
-          $menu.removeClass('show');
-          $this.attr('aria-expanded', 'false');
-        } else {
-          $('.dropdown').removeClass('show');
-          $('.dropdown-menu').removeClass('show');
-          $('.dropdown-toggle').attr('aria-expanded', 'false');
-
-          $parent.addClass('show');
-          $menu.addClass('show');
-          $this.attr('aria-expanded', 'true');
-        }
-      });
-
-    });
-  </script>
-
-  <style>
-    .grecaptcha-badge {
-      display: none !important;
-    }
-  </style>
-
+  <!-- React SPA entry point (loaded last) -->
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 
 </html>
