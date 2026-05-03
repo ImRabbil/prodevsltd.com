@@ -172,7 +172,6 @@ export default function Checkout() {
                                 rows="5"
                                 value={form.customer_note}
                                 onChange={handleChange}
-                                required
                               ></textarea>
                             </div>
                             {errors.general && (

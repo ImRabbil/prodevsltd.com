@@ -32,7 +32,7 @@ export default function PrivacyPolicy() {
                   Privacy Policy <i className="fa fa-chevron-right"></i>
                 </span>
               </p>
-              <h2 className="mb-0 bread">Privacy Policy</h2>
+              <h1 className="mb-0 bread">Privacy Policy</h1>
             </div>
           </div>
         </div>

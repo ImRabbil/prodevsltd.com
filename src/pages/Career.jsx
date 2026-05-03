@@ -4,7 +4,7 @@ import { getCareers } from "../api/client";
 
 function isPastDeadline(deadline) {
   if (!deadline) return false;
-  return new Date(deadline) <= new Date();
+  return new Date(deadline) < new Date();
 }
 
 export default function Career() {

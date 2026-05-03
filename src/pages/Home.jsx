@@ -144,7 +144,7 @@ export default function Home() {
                       <h2>{slider.name}</h2>
                       <p className="mb-4">{slider.description}</p>
                       <p>
-                        <a href="#" className="btn btn-primary">
+                        <a href="/contact-us" className="btn btn-primary">
                           Get Started
                         </a>
                       </p>
