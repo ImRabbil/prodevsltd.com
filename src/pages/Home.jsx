@@ -23,15 +23,16 @@ function assetUrl(path) {
 function useOwlCarousel(ref, options, deps = []) {
   useEffect(() => {
     const $ = window.$;
-    if (!$ || !ref.current) return;
+    if (!$ || !ref.current || typeof $.fn?.owlCarousel !== "function") return;
+
     const $el = $(ref.current);
-    if ($el.hasClass("owl-loaded")) {
-      $el.trigger("destroy.owl.carousel").removeClass("owl-loaded");
-    }
+    if ($el.children().length === 0) return;
+
+    // This project uses an Owl build with a broken destroy() path.
+    // Skip re-destroy/re-init and only initialize once per mounted element.
+    if ($el.data("owl.carousel")) return;
+
     $el.owlCarousel(options);
-    return () => {
-      $el.trigger("destroy.owl.carousel").removeClass("owl-loaded");
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }
@@ -60,13 +61,17 @@ function AnimatedCounter({ target }) {
           }, 16);
         }
       },
-      { threshold: 0.3 }
+      { threshold: 0.3 },
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, [target]);
 
-  return <strong className="number" ref={ref}>{count}</strong>;
+  return (
+    <strong className="number" ref={ref}>
+      {count}
+    </strong>
+  );
 }
 
 export default function Home() {
@@ -82,37 +87,101 @@ export default function Home() {
   const clientRef = useRef(null);
 
   useEffect(() => {
-    getSetting().then(setSetting).catch(() => {});
-    getSliders().then(setSliders).catch(() => {});
-    getServices().then(setServices).catch(() => {});
-    getProjects().then(setProjects).catch(() => {});
-    getTestimonials().then(setTestimonials).catch(() => {});
-    getClients().then(setClients).catch(() => {});
+    getSetting()
+      .then(setSetting)
+      .catch(() => {});
+    getSliders()
+      .then(setSliders)
+      .catch(() => {});
+    getServices()
+      .then(setServices)
+      .catch(() => {});
+    getProjects()
+      .then((res) => {
+        if (Array.isArray(res)) {
+          setProjects(res);
+          return;
+        }
+        if (Array.isArray(res?.data)) {
+          setProjects(res.data);
+          return;
+        }
+        setProjects([]);
+      })
+      .catch(() => {});
+    getTestimonials()
+      .then(setTestimonials)
+      .catch(() => {});
+    getClients()
+      .then(setClients)
+      .catch(() => {});
   }, []);
 
   // Hero slider
   useOwlCarousel(
     sliderRef,
-    { items: 1, loop: true, autoplay: true, autoplayTimeout: 5000, nav: true, animateOut: "fadeOut" },
-    [sliders]
+    {
+      items: 1,
+      loop: true,
+      autoplay: true,
+      autoplayTimeout: 5000,
+      nav: true,
+      dots: false,
+      autoplayHoverPause: true,
+      animateOut: "fadeOut",
+      navText: [
+        "<span class='fa fa-chevron-left'></span>",
+        "<span class='fa fa-chevron-right'></span>",
+      ],
+    },
+    [sliders.length],
   );
 
   // Testimonial carousel
   useOwlCarousel(
     testimonialRef,
-    { loop: true, autoplay: true, margin: 30, stagePadding: 0, nav: false, dots: true, autoplayHoverPause: true, responsive: { 0: { items: 1 }, 600: { items: 2 }, 1000: { items: 3 } } },
-    [testimonials]
+    {
+      loop: false,
+      autoplay: true,
+      margin: 30,
+      stagePadding: 0,
+      nav: false,
+      dots: true,
+      autoplayHoverPause: true,
+      responsive: {
+        0: { items: 1 },
+        600: { items: 2 },
+        1000: { items: 4 },
+      },
+    },
+    [testimonials.length],
   );
 
   // Clients carousel
   useOwlCarousel(
     clientRef,
-    { loop: true, autoplay: true, margin: 30, nav: false, dots: false, responsive: { 0: { items: 1 }, 600: { items: 3 }, 1000: { items: 5 } } },
-    [clients]
+    {
+      loop: true,
+      autoplay: false,
+      margin: 30,
+      nav: true,
+      dots: false,
+      navText: [
+        "<span class='fa fa-chevron-left'></span>",
+        "<span class='fa fa-chevron-right'></span>",
+      ],
+      responsive: {
+        0: { items: 2 },
+        600: { items: 4 },
+        1000: { items: 6 },
+      },
+    },
+    [clients.length],
   );
 
   const years = setting?.established_date
-    ? new Date().getFullYear() - new Date(setting.established_date).getFullYear()
+    ? new Date().getFullYear() -
+      new Date(setting.established_date).getFullYear()
     : 0;
 
   return (
@@ -208,8 +277,7 @@ export default function Home() {
                   <div
                     className="img d-flex align-items-center align-self-stretch justify-content-center"
                     style={{
-                      backgroundImage:
-                        "url(/assets/images/about-us-bg.jpg)",
+                      backgroundImage: "url(/assets/images/about-us-bg.jpg)",
                     }}
                   ></div>
                 </div>
@@ -316,8 +384,7 @@ export default function Home() {
             </div>
             <div className="col-md-4 col-lg-3 d-flex align-items-center justify-content-end">
               <Link to="/projects" className="btn-custom">
-                View All Projects{" "}
-                <span className="fa fa-chevron-right"></span>
+                View All Projects <span className="fa fa-chevron-right"></span>
               </Link>
             </div>
           </div>

@@ -4,8 +4,20 @@
  * Set VITE_API_BASE_URL in your .env file to point to your Laravel backend.
  * Defaults to /api/v1 (same-domain) when the variable is not set.
  */
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api/v1";
+function normalizeApiBaseUrl(rawBaseUrl) {
+  if (!rawBaseUrl) return "/api/v1";
+
+  const trimmed = rawBaseUrl.trim();
+
+  if (trimmed.startsWith("/") || /^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/\/$/, "");
+  }
+
+  // Treat host-like values as HTTPS to prevent Vite from resolving them as local paths.
+  return `https://${trimmed}`.replace(/\/$/, "");
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 async function apiFetch(path, options = {}) {
   const url = `${API_BASE_URL}${path}`;

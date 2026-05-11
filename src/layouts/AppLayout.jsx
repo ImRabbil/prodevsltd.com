@@ -27,16 +27,15 @@ export default function AppLayout() {
       .catch(() => {});
   }, []);
 
+  console.log(setting);
+
   return (
     <>
       <Header setting={setting} services={services} categories={categories} />
-
       {/* Page content rendered here */}
       <Outlet />
-
       <Footer setting={setting} services={services} categories={categories} />
       <SocialButton setting={setting} />
-
       {/* Full-screen loader (matches Blade master) */}
       <div id="ftco-loader" className="show fullscreen">
         <svg className="circular" width="48px" height="48px">

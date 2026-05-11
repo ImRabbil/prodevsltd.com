@@ -28,7 +28,11 @@
   <link rel="stylesheet" href="/assets/css/order-confirm.css">
 
   <!-- Recaptcha (configure via VITE_RECAPTCHA_SITE_KEY in .env) -->
-  <style>.grecaptcha-badge { display: none !important; }</style>
+  <style>
+    .grecaptcha-badge {
+      display: none !important;
+    }
+  </style>
 </head>
 
 <body>
@@ -46,7 +50,82 @@
   <script src="/assets/js/jquery.magnific-popup.min.js"></script>
   <script src="/assets/js/jquery.animateNumber.min.js"></script>
   <script src="/assets/js/scrollax.min.js"></script>
-  <script src="/assets/js/main.js"></script>
+  <!-- <script src="/assets/js/main.js"></script> -->
+  <script>
+    $(document).ready(function () {
+      $('#newsletter').on('submit', function (e) {
+        e.preventDefault();
+        var $submitBtn = $(this).find('input[type="submit"]');
+        var $loader = $('#newsletter-loader');
+
+        // Clear messages
+        $('.success-message').text('').hide();
+        $('.email_error').text('').hide();
+        $('.g-recaptcha-response_error').text('').hide();
+
+        $submitBtn.prop('disabled', true).val('Submitting...');
+        $loader.addClass('active');
+
+        grecaptcha.ready(function () {
+          grecaptcha.execute('{{ env('RECAPTCHA_SITE_KEY') }}', { action: 'newsletter' }).then(function (token) {
+            var formData = new FormData(document.getElementById('newsletter'));
+            formData.append('g-recaptcha-response', token);
+            $.ajax({
+              url: $('#newsletter').attr('action'),
+              type: $('#newsletter').attr('method'),
+              data: formData,
+              processData: false,
+              contentType: false,
+              success: function (data) {
+                $submitBtn.prop('disabled', false).val('Subscribe');
+                $loader.removeClass('active');
+                if (data.res_status == 1) {
+                  $('.success-message').text('Thanks for your subscription!').fadeIn();
+                  $('#newsletter')[0].reset();
+                } else {
+                  if (typeof data.error === 'object') {
+                    $.each(data.error, function (prefix, val) {
+                      $('span.' + prefix + '_error').text(val[0]).show();
+                    });
+                  } else {
+                    // Handle string error (e.g. exception message)
+                    $('.email_error').text(data.error || 'An unexpected error occurred.').show();
+                  }
+                }
+              },
+              error: function (error) {
+                $submitBtn.prop('disabled', false).val('Subscribe');
+                $loader.removeClass('active');
+                console.error('Newsletter error:', error);
+              }
+            });
+          });
+        });
+      });
+
+      // Mobile dropdown fix
+      $('.dropdown-toggle').on('click touchstart', function (e) {
+        if ($(window).width() >= 768) return; // let Bootstrap handle on desktop
+        e.preventDefault();
+        e.stopPropagation();
+        var $this = $(this);
+        var $menu = $this.next('.dropdown-menu');
+        var $parent = $this.parent('.dropdown');
+        if ($parent.hasClass('show')) {
+          $parent.removeClass('show');
+          $menu.removeClass('show');
+          $this.attr('aria-expanded', 'false');
+        } else {
+          $('.dropdown').removeClass('show');
+          $('.dropdown-menu').removeClass('show');
+          $('.dropdown-toggle').attr('aria-expanded', 'false');
+          $parent.addClass('show');
+          $menu.addClass('show');
+          $this.attr('aria-expanded', 'true');
+        }
+      });
+    });
+  </script>
 
   <!-- React SPA entry point (loaded last) -->
   <script type="module" src="/src/main.jsx"></script>
