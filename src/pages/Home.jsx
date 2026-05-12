@@ -16,7 +16,10 @@ function assetUrl(path) {
   if (!path) return null;
   if (path.startsWith("http")) return path;
   const base = API_BASE_URL.replace("/api/v1", "").replace(/\/api.*/, "");
-  return `${base}/${path.replace(/^\//, "")}`;
+  const cleanPath = path.replace(/^\/+/, ""); // Remove leading slashes
+  const url = `${base}/${cleanPath}`;
+  console.debug("assetUrl:", { path, base, cleanPath, url });
+  return url;
 }
 
 /** Initialise/destroy an Owl Carousel via jQuery. */
@@ -91,22 +94,18 @@ export default function Home() {
       .then(setSetting)
       .catch(() => {});
     getSliders()
-      .then(setSliders)
+      .then((res) => {
+        // console.log(res);
+        setSliders(res.data ?? []);
+      })
       .catch(() => {});
     getServices()
       .then(setServices)
       .catch(() => {});
     getProjects()
       .then((res) => {
-        if (Array.isArray(res)) {
-          setProjects(res);
-          return;
-        }
-        if (Array.isArray(res?.data)) {
-          setProjects(res.data);
-          return;
-        }
-        setProjects([]);
+        // console.log(res);
+        setProjects(res.data ?? []);
       })
       .catch(() => {});
     getTestimonials()
@@ -184,6 +183,24 @@ export default function Home() {
       new Date(setting.established_date).getFullYear()
     : 0;
 
+  console.log(projects);
+  // Debug logging
+  // console.log("Home page data loaded:", {
+  //   settingExists: !!setting,
+  //   slidersCount: sliders.length,
+  //   servicesCount: services.length,
+  //   projectsCount: projects.length,
+  //   testimonialsCount: testimonials.length,
+  //   clientsCount: clients.length,
+  // });
+  // if (sliders.length > 0 && sliders[0]) {
+  //   console.log("First slider full data:", sliders[0]);
+  //   if (sliders[0].media) {
+  //     console.log("✓ First slider has media:", sliders[0].media.path);
+  //   } else {
+  //     console.warn("✗ First slider has NO media property");
+  //   }
+  // }
   return (
     <>
       {/* Hero / Slider */}
@@ -389,7 +406,7 @@ export default function Home() {
             </div>
           </div>
           <div className="row">
-            {projects.slice(0, 6).map((project) => (
+            {projects.map((project) => (
               <div key={project.id} className="col-md-4 ftco-animate">
                 <div
                   className="project-wrap img d-flex align-items-end"

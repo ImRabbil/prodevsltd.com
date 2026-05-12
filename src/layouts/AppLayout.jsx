@@ -27,7 +27,7 @@ export default function AppLayout() {
       .catch(() => {});
   }, []);
 
-  console.log(setting);
+  //console.log(setting);
 
   return (
     <>

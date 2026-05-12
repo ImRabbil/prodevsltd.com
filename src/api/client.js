@@ -31,6 +31,8 @@ async function apiFetch(path, options = {}) {
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${url}`);
   }
+
+  // console.log("API response:", res.json());
   return res.json();
 }
 
