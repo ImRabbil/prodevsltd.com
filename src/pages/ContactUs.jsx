@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { getSetting, postContact } from "../api/client";
+import { postContact } from "../api/client";
+import { useGlobalData } from "../features/shared/hooks/useGlobalData";
 
 export default function ContactUs() {
-  const [setting, setSetting] = useState(null);
+  const { data: globalData } = useGlobalData();
+  const setting = globalData?.setting ?? null;
+
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -14,10 +17,6 @@ export default function ContactUs() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
-
-  useEffect(() => {
-    getSetting().then(setSetting).catch(() => {});
-  }, []);
 
   const handleChange = (e) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -33,12 +32,12 @@ export default function ContactUs() {
       const data = await postContact(form);
       if (data.res_status === 1) {
         setSuccess(
-          "We have received your request. Our concern team will contact you soon. Thank you."
+          "We have received your request. Our concern team will contact you soon. Thank you.",
         );
         setForm({ name: "", phone: "", email: "", subject: "", message: "" });
       } else {
         setErrors(
-          typeof data.error === "object" ? data.error : { general: data.error }
+          typeof data.error === "object" ? data.error : { general: data.error },
         );
       }
     } catch {
@@ -50,7 +49,6 @@ export default function ContactUs() {
 
   return (
     <>
-      {/* Page Banner */}
       <section
         className="hero-wrap hero-wrap-2"
         style={{ backgroundImage: "url(/assets/images/bg-4.jpg)" }}
@@ -75,14 +73,12 @@ export default function ContactUs() {
         </div>
       </section>
 
-      {/* Contact Form + Info */}
       <section className="ftco-section">
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-md-12">
               <div className="wrapper">
                 <div className="row no-gutters">
-                  {/* Form */}
                   <div className="col-md-7 d-flex align-items-stretch">
                     <div className="contact-wrap w-100 p-md-5 p-4">
                       <h3 className="mb-3">Get in touch</h3>
@@ -101,9 +97,7 @@ export default function ContactUs() {
                                 required
                               />
                               {errors.name && (
-                                <span className="text-danger">
-                                  {errors.name[0]}
-                                </span>
+                                <span className="text-danger">{errors.name[0]}</span>
                               )}
                             </div>
                           </div>
@@ -120,9 +114,7 @@ export default function ContactUs() {
                                 required
                               />
                               {errors.phone && (
-                                <span className="text-danger">
-                                  {errors.phone[0]}
-                                </span>
+                                <span className="text-danger">{errors.phone[0]}</span>
                               )}
                             </div>
                           </div>
@@ -152,9 +144,7 @@ export default function ContactUs() {
                                 required
                               />
                               {errors.subject && (
-                                <span className="text-danger">
-                                  {errors.subject[0]}
-                                </span>
+                                <span className="text-danger">{errors.subject[0]}</span>
                               )}
                             </div>
                           </div>
@@ -170,17 +160,13 @@ export default function ContactUs() {
                                 required
                               ></textarea>
                               {errors.message && (
-                                <span className="text-danger">
-                                  {errors.message[0]}
-                                </span>
+                                <span className="text-danger">{errors.message[0]}</span>
                               )}
                             </div>
                           </div>
                           {errors.general && (
                             <div className="col-md-12 mb-3">
-                              <span className="text-danger">
-                                {errors.general}
-                              </span>
+                              <span className="text-danger">{errors.general}</span>
                             </div>
                           )}
                           <div className="col-md-12">
@@ -205,7 +191,6 @@ export default function ContactUs() {
                     </div>
                   </div>
 
-                  {/* Info */}
                   <div className="col-md-5 d-flex align-items-stretch">
                     <div className="info-wrap bg-darken w-100 p-lg-5 p-4">
                       <h3 className="mb-4 mt-md-4">Contact us</h3>
@@ -226,9 +211,7 @@ export default function ContactUs() {
                           </div>
                           <div className="text pl-3">
                             <p>
-                              <a href={`tel:${setting.phone}`}>
-                                {setting.phone}
-                              </a>
+                              <a href={`tel:${setting.phone}`}>{setting.phone}</a>
                             </p>
                           </div>
                         </div>
@@ -240,9 +223,7 @@ export default function ContactUs() {
                           </div>
                           <div className="text pl-3">
                             <p>
-                              <a href={`mailto:${setting.email}`}>
-                                {setting.email}
-                              </a>
+                              <a href={`mailto:${setting.email}`}>{setting.email}</a>
                             </p>
                           </div>
                         </div>
@@ -292,7 +273,6 @@ export default function ContactUs() {
               </div>
             </div>
 
-            {/* Map */}
             {setting?.map && (
               <div className="col-md-12 mt-5">
                 <div

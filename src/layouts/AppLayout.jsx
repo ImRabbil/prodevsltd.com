@@ -1,65 +1,37 @@
-import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import SocialButton from "../components/SocialButton";
-import { getSetting, getServices, getCategories } from "../api/client";
+import PageLoader from "../components/PageLoader";
+import { useGlobalData } from "../features/shared/hooks/useGlobalData";
 
-/**
- * AppLayout – wraps every page.
- * Fetches shared data (settings, services, categories) once and passes
- * it down to Header and Footer via props.
- */
 export default function AppLayout() {
-  const [setting, setSetting] = useState(null);
-  const [services, setServices] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const { data, isLoading, isError, refetch } = useGlobalData();
 
-  useEffect(() => {
-    getSetting()
-      .then(setSetting)
-      .catch(() => {});
-    getServices()
-      .then(setServices)
-      .catch(() => {});
-    getCategories()
-      .then(setCategories)
-      .catch(() => {});
-  }, []);
+  if (isLoading && !data) {
+    return <PageLoader />;
+  }
 
-  //console.log(setting);
+  const setting = data?.setting ?? null;
+  const services = data?.services ?? [];
+  const categories = data?.categories ?? [];
 
   return (
     <>
+      {isError && (
+        <div className="container mt-3">
+          <div className="alert alert-warning d-flex justify-content-between align-items-center mb-0">
+            <span>Could not load shared site data.</span>
+            <button className="btn btn-sm btn-outline-dark" onClick={() => refetch()}>
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
       <Header setting={setting} services={services} categories={categories} />
-      {/* Page content rendered here */}
       <Outlet />
       <Footer setting={setting} services={services} categories={categories} />
       <SocialButton setting={setting} />
-      {/* Full-screen loader (matches Blade master) */}
-      <div id="ftco-loader" className="show fullscreen">
-        <svg className="circular" width="48px" height="48px">
-          <circle
-            className="path-bg"
-            cx="24"
-            cy="24"
-            r="22"
-            fill="none"
-            strokeWidth="4"
-            stroke="#eeeeee"
-          />
-          <circle
-            className="path"
-            cx="24"
-            cy="24"
-            r="22"
-            fill="none"
-            strokeWidth="4"
-            strokeMiterlimit="10"
-            stroke="#F96D00"
-          />
-        </svg>
-      </div>
     </>
   );
 }
