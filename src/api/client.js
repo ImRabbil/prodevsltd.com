@@ -13,82 +13,264 @@ function normalizeApiBaseUrl(rawBaseUrl) {
     return trimmed.replace(/\/$/, "");
   }
 
-  // Treat host-like values as HTTPS to prevent Vite from resolving them as local paths.
   return `https://${trimmed}`.replace(/\/$/, "");
 }
 
 const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+const DEFAULT_TIMEOUT_MS = 15000;
+const inflightGetRequests = new Map();
 
-async function apiFetch(path, options = {}) {
-  const url = `${API_BASE_URL}${path}`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      ...options.headers,
-    },
-    ...options,
+export class ApiError extends Error {
+  constructor(message, details = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = details.status ?? null;
+    this.url = details.url ?? "";
+    this.body = details.body ?? null;
+    this.retryAfter = details.retryAfter ?? null;
+  }
+}
+
+function delay(ms, signal) {
+  if (!ms || ms <= 0) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    const timerId = setTimeout(resolve, ms);
+
+    if (!signal) return;
+
+    const onAbort = () => {
+      clearTimeout(timerId);
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
   });
-  if (!res.ok) {
-    throw new Error(`API error ${res.status}: ${url}`);
+}
+
+function buildRequestSignal(externalSignal, timeoutMs) {
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(() => {
+    controller.abort(new DOMException("Request timeout", "AbortError"));
+  }, timeoutMs);
+
+  const onAbort = () => {
+    controller.abort(
+      externalSignal?.reason || new DOMException("The operation was aborted.", "AbortError"),
+    );
+  };
+
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      clearTimeout(timeoutId);
+      controller.abort(
+        externalSignal.reason ||
+          new DOMException("The operation was aborted.", "AbortError"),
+      );
+    } else {
+      externalSignal.addEventListener("abort", onAbort, { once: true });
+    }
   }
 
-  // console.log("API response:", res.json());
-  return res.json();
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeoutId);
+      if (externalSignal) {
+        externalSignal.removeEventListener("abort", onAbort);
+      }
+    },
+  };
+}
+
+function parseRetryAfter(value) {
+  if (!value) return 0;
+  const asNumber = Number(value);
+  if (Number.isFinite(asNumber)) {
+    return Math.max(0, asNumber * 1000);
+  }
+
+  const asDate = Date.parse(value);
+  if (!Number.isNaN(asDate)) {
+    return Math.max(0, asDate - Date.now());
+  }
+
+  return 0;
+}
+
+async function parseResponseBody(res) {
+  const contentType = res.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return res.json();
+  }
+
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function shouldRetry(method, status, attempt, maxRetries) {
+  if (method !== "GET") return false;
+  if (attempt >= maxRetries) return false;
+  return status === 429 || status >= 500;
+}
+
+async function requestWithRetry(path, options = {}) {
+  const method = (options.method || "GET").toUpperCase();
+  const timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const maxRetries = options.retries ?? 2;
+  const url = `${API_BASE_URL}${path}`;
+
+  const fetchOptions = { ...options };
+  delete fetchOptions.timeoutMs;
+  delete fetchOptions.retries;
+
+  let attempt = 0;
+
+  while (true) {
+    const { signal, cleanup } = buildRequestSignal(fetchOptions.signal, timeoutMs);
+
+    try {
+      const res = await fetch(url, {
+        ...fetchOptions,
+        method,
+        signal,
+        headers: {
+          Accept: "application/json",
+          ...fetchOptions.headers,
+        },
+      });
+
+      const body = await parseResponseBody(res);
+
+      if (!res.ok) {
+        const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
+        const error = new ApiError(`API error ${res.status}: ${url}`, {
+          status: res.status,
+          url,
+          body,
+          retryAfter,
+        });
+
+        if (shouldRetry(method, res.status, attempt, maxRetries)) {
+          attempt += 1;
+          await delay(retryAfter || attempt * 500, fetchOptions.signal);
+          continue;
+        }
+
+        throw error;
+      }
+
+      return body;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw error;
+      }
+
+      if (method === "GET" && attempt < maxRetries) {
+        attempt += 1;
+        await delay(attempt * 500, fetchOptions.signal);
+        continue;
+      }
+
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      throw new ApiError(`Network error: ${url}`, { url, body: null });
+    } finally {
+      cleanup();
+    }
+  }
+}
+
+async function apiFetch(path, options = {}) {
+  const method = (options.method || "GET").toUpperCase();
+
+  if (method !== "GET") {
+    return requestWithRetry(path, options);
+  }
+
+  const key = `${method}:${API_BASE_URL}${path}`;
+  const inflight = inflightGetRequests.get(key);
+  if (inflight) return inflight;
+
+  const requestPromise = requestWithRetry(path, options).finally(() => {
+    inflightGetRequests.delete(key);
+  });
+
+  inflightGetRequests.set(key, requestPromise);
+  return requestPromise;
 }
 
 // ── Settings & static data ──────────────────────────────────────────────────
-export const getSetting = () => apiFetch("/setting");
-export const getPageSettings = () => apiFetch("/page-settings");
+export const getSetting = (options) => apiFetch("/setting", options);
+export const getPageSettings = (options) => apiFetch("/page-settings", options);
 
 // ── Sliders ─────────────────────────────────────────────────────────────────
-export const getSliders = () => apiFetch("/slider");
+export const getSliders = (options) => apiFetch("/slider", options);
 
 // ── Services ─────────────────────────────────────────────────────────────────
-export const getServices = () => apiFetch("/services");
-export const getServiceDetails = (slug) => apiFetch(`/service/${slug}`);
+export const getServices = (options) => apiFetch("/services", options);
+export const getServiceDetails = (slug, options) =>
+  apiFetch(`/service/${slug}`, options);
 
 // ── Projects ─────────────────────────────────────────────────────────────────
-export const getProjects = (params = "") => apiFetch(`/projects${params}`);
+export const getProjects = (params = "", options) =>
+  apiFetch(`/projects${params}`, options);
 
 // ── Testimonials & Clients ───────────────────────────────────────────────────
-export const getTestimonials = () => apiFetch("/testimonials");
-export const getClients = () => apiFetch("/clients");
+export const getTestimonials = (options) => apiFetch("/testimonials", options);
+export const getClients = (options) => apiFetch("/clients", options);
 
 // ── Team ─────────────────────────────────────────────────────────────────────
-export const getTeam = () => apiFetch("/team");
+export const getTeam = (options) => apiFetch("/team", options);
 
 // ── Blogs ────────────────────────────────────────────────────────────────────
-export const getBlogs = () => apiFetch("/blogs");
-export const getBlogDetails = (slug) => apiFetch(`/blog/${slug}`);
+export const getBlogs = (options) => apiFetch("/blogs", options);
+export const getBlogDetails = (slug, options) => apiFetch(`/blog/${slug}`, options);
 
 // ── Careers ──────────────────────────────────────────────────────────────────
-export const getCareers = () => apiFetch("/careers");
-export const getCareerDetails = (slug) => apiFetch(`/career/${slug}`);
+export const getCareers = (options) => apiFetch("/careers", options);
+export const getCareerDetails = (slug, options) =>
+  apiFetch(`/career/${slug}`, options);
 
 // ── Products & Categories ────────────────────────────────────────────────────
-export const getCategories = () => apiFetch("/categories");
-export const getProducts = (categorySlug) =>
-  apiFetch(`/products/${categorySlug}`);
-export const getProductDetails = (slug) => apiFetch(`/product/${slug}`);
+export const getCategories = (options) => apiFetch("/categories", options);
+export const getProducts = (categorySlug, options) =>
+  apiFetch(`/products/${categorySlug}`, options);
+export const getProductDetails = (slug, options) =>
+  apiFetch(`/product/${slug}`, options);
 
 // ── Forms (POST) ─────────────────────────────────────────────────────────────
-export const postContact = (data) =>
+export const postContact = (data, options = {}) =>
   apiFetch("/contact", {
+    ...options,
+    retries: 0,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...options.headers },
     body: JSON.stringify(data),
   });
 
-export const postNewsletter = (data) =>
+export const postNewsletter = (data, options = {}) =>
   apiFetch("/newsletter", {
+    ...options,
+    retries: 0,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...options.headers },
     body: JSON.stringify(data),
   });
 
-export const postOrder = (data) =>
+export const postOrder = (data, options = {}) =>
   apiFetch("/order", {
+    ...options,
+    retries: 0,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...options.headers },
     body: JSON.stringify(data),
   });

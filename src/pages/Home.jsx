@@ -1,27 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  getSliders,
-  getServices,
-  getProjects,
-  getTestimonials,
-  getClients,
-  getSetting,
-} from "../api/client";
 import HomeSkeleton from "../components/HomeSkeleton";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api/v1";
-
-function assetUrl(path) {
-  if (!path) return null;
-  if (path.startsWith("http")) return path;
-  const base = API_BASE_URL.replace("/api/v1", "").replace(/\/api.*/, "");
-  const cleanPath = path.replace(/^\/+/, ""); // Remove leading slashes
-  const url = `${base}/${cleanPath}`;
-  console.log("assetUrl:", { path, base, cleanPath, url });
-  return url;
-}
+import { useGlobalData } from "../features/shared/hooks/useGlobalData";
+import { useHomeData } from "../features/home/hooks/useHomeData";
+import { assetUrl } from "../lib/assetUrl";
 
 /** Initialise/destroy an Owl Carousel via jQuery. */
 function useOwlCarousel(ref, options, deps = []) {
@@ -32,8 +14,6 @@ function useOwlCarousel(ref, options, deps = []) {
     const $el = $(ref.current);
     if ($el.children().length === 0) return;
 
-    // This project uses an Owl build with a broken destroy() path.
-    // Skip re-destroy/re-init and only initialize once per mounted element.
     if ($el.data("owl.carousel")) return;
 
     $el.owlCarousel(options);
@@ -79,59 +59,30 @@ function AnimatedCounter({ target }) {
 }
 
 export default function Home() {
-  const [sliders, setSliders] = useState([]);
-  const [services, setServices] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [testimonials, setTestimonials] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [setting, setSetting] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: globalData,
+    isLoading: isGlobalLoading,
+    isError: isGlobalError,
+    refetch: refetchGlobal,
+  } = useGlobalData();
+  const {
+    data: homeData,
+    isLoading: isHomeLoading,
+    isError: isHomeError,
+    refetch: refetchHome,
+  } = useHomeData();
 
   const sliderRef = useRef(null);
   const testimonialRef = useRef(null);
   const clientRef = useRef(null);
 
-  useEffect(() => {
-    async function loadHomeData() {
-      try {
-        const [
-          settingRes,
-          sliderRes,
-          serviceRes,
-          projectRes,
-          testimonialRes,
-          clientRes,
-        ] = await Promise.all([
-          getSetting(),
-          getSliders(),
-          getServices(),
-          getProjects(),
-          getTestimonials(),
-          getClients(),
-        ]);
+  const setting = globalData?.setting ?? null;
+  const services = globalData?.services ?? [];
+  const sliders = homeData?.sliders ?? [];
+  const projects = homeData?.projects ?? [];
+  const testimonials = homeData?.testimonials ?? [];
+  const clients = homeData?.clients ?? [];
 
-        setSetting(settingRes);
-
-        setSliders(sliderRes.data ?? []);
-
-        setServices(serviceRes.data ?? serviceRes ?? []);
-
-        setProjects(projectRes.data ?? []);
-
-        setTestimonials(testimonialRes.data ?? testimonialRes ?? []);
-
-        setClients(clientRes.data ?? []);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadHomeData();
-  }, []);
-
-  // Hero slider
   useOwlCarousel(
     sliderRef,
     {
@@ -151,7 +102,6 @@ export default function Home() {
     [sliders.length],
   );
 
-  // Testimonial carousel
   useOwlCarousel(
     testimonialRef,
     {
@@ -171,7 +121,6 @@ export default function Home() {
     [testimonials.length],
   );
 
-  // Clients carousel
   useOwlCarousel(
     clientRef,
     {
@@ -198,30 +147,31 @@ export default function Home() {
       new Date(setting.established_date).getFullYear()
     : 0;
 
-  console.log(projects);
-  // Debug logging
-  // console.log("Home page data loaded:", {
-  //   settingExists: !!setting,
-  //   slidersCount: sliders.length,
-  //   servicesCount: services.length,
-  //   projectsCount: projects.length,
-  //   testimonialsCount: testimonials.length,
-  //   clientsCount: clients.length,
-  // });
-  // if (sliders.length > 0 && sliders[0]) {
-  //   console.log("First slider full data:", sliders[0]);
-  //   if (sliders[0].media) {
-  //     console.log("✓ First slider has media:", sliders[0].media.path);
-  //   } else {
-  //     console.warn("✗ First slider has NO media property");
-  //   }
-  // }
-  if (loading) {
+  if (isGlobalLoading || isHomeLoading) {
     return <HomeSkeleton />;
   }
+
+  if (isGlobalError || isHomeError) {
+    return (
+      <section className="ftco-section">
+        <div className="container text-center">
+          <h3>Could not load homepage data.</h3>
+          <button
+            className="btn btn-primary mt-3"
+            onClick={() => {
+              refetchGlobal();
+              refetchHome();
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <>
-      {/* Hero / Slider */}
       <section className="hero-wrap">
         <div className="home-slider owl-carousel js-fullheight" ref={sliderRef}>
           {sliders.map((slider, i) => (
@@ -262,7 +212,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Services */}
       <section className="ftco-section ftco-services">
         <div className="container">
           <div className="row">
@@ -303,7 +252,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* About Us */}
       <section className="ftco-section ftco-about ftco-no-pt ftco-no-pb img">
         <div className="container">
           <div className="row d-flex">
@@ -325,13 +273,13 @@ export default function Home() {
                         Professional Software, Digital and IT Solutions Company
                       </h1>
                       <p>
-                        Pro Devs Ltd. is a digital transformation consultancy
-                        and software development company that provides cutting
-                        edge software engineering solutions, helping companies
-                        and enterprise clients untangle complex issues that
-                        always emerge during their digital evolution journey.
-                        Since 2022 we have been a visionary and a reliable
-                        software engineering partner for companies &amp; brands.
+                        Pro Devs Ltd. is a digital transformation consultancy and
+                        software development company that provides cutting edge
+                        software engineering solutions, helping companies and
+                        enterprise clients untangle complex issues that always
+                        emerge during their digital evolution journey. Since 2022
+                        we have been a visionary and a reliable software
+                        engineering partner for companies &amp; brands.
                       </p>
                       {years > 0 && (
                         <div className="year-stablish d-flex">
@@ -356,7 +304,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats counter */}
       <section
         className="ftco-section ftco-counter img"
         id="section-counter"
@@ -406,7 +353,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Projects */}
       <section className="ftco-section ftco-portfolio">
         <div className="overlay"></div>
         <div className="container">
@@ -458,7 +404,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Testimonials */}
       <section className="ftco-section testimony-section ftco-no-pt bg-light">
         <div className="overlay"></div>
         <div className="container">
@@ -529,7 +474,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Clients */}
       <section className="ftco-section client-section ftco-no-pb">
         <div className="overlay"></div>
         <div className="container">

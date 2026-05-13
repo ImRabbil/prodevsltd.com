@@ -1,28 +1,16 @@
-import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getServiceDetails, getServices } from "../api/client";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api/v1";
-
-function assetUrl(path) {
-  if (!path) return null;
-  if (path.startsWith("http")) return path;
-  const base = API_BASE_URL.replace("/api/v1", "").replace(/\/api.*/, "");
-  return `${base}/${path.replace(/^\//, "")}`;
-}
+import { useGlobalData } from "../features/shared/hooks/useGlobalData";
+import { useServiceDetails } from "../features/services/hooks/useServiceDetails";
+import { assetUrl } from "../lib/assetUrl";
 
 export default function ServiceDetails() {
   const { slug } = useParams();
-  const [service, setService] = useState(null);
-  const [services, setServices] = useState([]);
+  const { data: globalData } = useGlobalData();
+  const { data: service, isLoading, isError, refetch } = useServiceDetails(slug);
 
-  useEffect(() => {
-    getServiceDetails(slug).then(setService).catch(() => {});
-    getServices().then(setServices).catch(() => {});
-  }, [slug]);
+  const services = globalData?.services ?? [];
 
-  if (!service) {
+  if (isLoading) {
     return (
       <section className="ftco-section">
         <div className="container">
@@ -32,9 +20,21 @@ export default function ServiceDetails() {
     );
   }
 
+  if (isError || !service) {
+    return (
+      <section className="ftco-section">
+        <div className="container text-center">
+          <p>Could not load service details.</p>
+          <button className="btn btn-primary" onClick={() => refetch()}>
+            Retry
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <>
-      {/* Page Banner */}
       <section
         className="hero-wrap hero-wrap-2"
         style={{ backgroundImage: "url(/assets/images/bg-4.jpg)" }}
@@ -59,13 +59,11 @@ export default function ServiceDetails() {
         </div>
       </section>
 
-      {/* Content */}
       <section className="ftco-section">
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-md-12">
               <div className="row">
-                {/* Main content */}
                 <div className="col-md-8">
                   {service.media?.path && (
                     <div className="image">
@@ -85,7 +83,6 @@ export default function ServiceDetails() {
                   </div>
                 </div>
 
-                {/* Sidebar */}
                 <div className="col-md-4">
                   <div className="row">
                     <div className="col-md-12">
@@ -95,9 +92,7 @@ export default function ServiceDetails() {
                             <li key={item.id}>
                               <Link
                                 to={`/services/${item.slug}`}
-                                className={
-                                  item.slug === slug ? "active" : ""
-                                }
+                                className={item.slug === slug ? "active" : ""}
                                 style={
                                   item.slug === slug
                                     ? {
