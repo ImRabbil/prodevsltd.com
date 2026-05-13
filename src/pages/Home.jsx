@@ -8,6 +8,7 @@ import {
   getClients,
   getSetting,
 } from "../api/client";
+import HomeSkeleton from "../components/HomeSkeleton";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "/api/v1";
@@ -18,7 +19,7 @@ function assetUrl(path) {
   const base = API_BASE_URL.replace("/api/v1", "").replace(/\/api.*/, "");
   const cleanPath = path.replace(/^\/+/, ""); // Remove leading slashes
   const url = `${base}/${cleanPath}`;
-  console.debug("assetUrl:", { path, base, cleanPath, url });
+  console.log("assetUrl:", { path, base, cleanPath, url });
   return url;
 }
 
@@ -84,36 +85,50 @@ export default function Home() {
   const [testimonials, setTestimonials] = useState([]);
   const [clients, setClients] = useState([]);
   const [setting, setSetting] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const sliderRef = useRef(null);
   const testimonialRef = useRef(null);
   const clientRef = useRef(null);
 
   useEffect(() => {
-    getSetting()
-      .then(setSetting)
-      .catch(() => {});
-    getSliders()
-      .then((res) => {
-        // console.log(res);
-        setSliders(res.data ?? []);
-      })
-      .catch(() => {});
-    getServices()
-      .then(setServices)
-      .catch(() => {});
-    getProjects()
-      .then((res) => {
-        // console.log(res);
-        setProjects(res.data ?? []);
-      })
-      .catch(() => {});
-    getTestimonials()
-      .then(setTestimonials)
-      .catch(() => {});
-    getClients()
-      .then(setClients)
-      .catch(() => {});
+    async function loadHomeData() {
+      try {
+        const [
+          settingRes,
+          sliderRes,
+          serviceRes,
+          projectRes,
+          testimonialRes,
+          clientRes,
+        ] = await Promise.all([
+          getSetting(),
+          getSliders(),
+          getServices(),
+          getProjects(),
+          getTestimonials(),
+          getClients(),
+        ]);
+
+        setSetting(settingRes);
+
+        setSliders(sliderRes.data ?? []);
+
+        setServices(serviceRes.data ?? serviceRes ?? []);
+
+        setProjects(projectRes.data ?? []);
+
+        setTestimonials(testimonialRes.data ?? testimonialRes ?? []);
+
+        setClients(clientRes.data ?? []);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadHomeData();
   }, []);
 
   // Hero slider
@@ -201,6 +216,9 @@ export default function Home() {
   //     console.warn("✗ First slider has NO media property");
   //   }
   // }
+  if (loading) {
+    return <HomeSkeleton />;
+  }
   return (
     <>
       {/* Hero / Slider */}
@@ -219,6 +237,7 @@ export default function Home() {
                     <div className="text w-100 banner-img">
                       {slider.media?.path && (
                         <img
+                          loading="lazy"
                           src={assetUrl(slider.media.path)}
                           alt={slider.media?.alt_text || ""}
                         />
@@ -469,7 +488,7 @@ export default function Home() {
                           <div
                             className="user-img"
                             style={{
-                              backgroundImage: `url(${assetUrl(item.media?.path)})`,
+                              backgroundImage: `url(/assets/images/testimonial/default_avatar.png)`,
                             }}
                           ></div>
                           <div className="pl-3">
